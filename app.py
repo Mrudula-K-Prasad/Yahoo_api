@@ -5,10 +5,18 @@ import pandas_datareader as web
 from datetime import date
 import json
 
+df_yahoo = pd.read_csv('yahoo_tickers.csv')
+df_usa = df_yahoo[df_yahoo['Country'] == 'USA']
+
+tickers = list(df_usa['Ticker'])
+names = list(df_usa['Name'])
+d_ticker = {}
+for i in range(len(names)):
+    d_ticker[names[i]] = tickers[i]
+    
 app = Flask("Html trial")
 
-# start_date = date(2018, 1, 1)
-# end_date = date(2022, 5, 31)
+
 def get_finance_data(name, start_date, end_date, interval):
     df = web.get_data_yahoo(name, start_date, end_date, interval = interval)
     
@@ -27,7 +35,8 @@ def get_finance_data(name, start_date, end_date, interval):
 
 @app.route('/fin_data', methods=['GET','POST'])
 def my_form_post():
-    results = {}
+    idx_name = ''
+    columns = []
     if request.method == "POST":
         name = request.form.get('name')
         start = request.form.get('start_date')
@@ -36,19 +45,30 @@ def my_form_post():
         end = request.form.get('end_date')
         y_e, m_e, d_e = end.split('-')
         end_date = date(int(y_e),int(m_e), int(d_e))
+        data_sources = {'1': 'yahoo', '2': 'fred'}
+        # interval = request.form.get('interval')
+        src_code = request.form.get('source')
+        if src_code == '1':
+            # for keys, value in d_ticker.items():
+            #     if value == name:
+            #         idx_name = keys
+            idx_name = name
+            columns = ['Volume', 'Adj Close']
+            df = web.DataReader(idx_name, data_sources[src_code], start_date, end_date)[columns]
+
+        if src_code == '2':
+            idx_name = 'SP500'
+            df = web.DataReader(idx_name, data_sources[src_code], start_date, end_date)
+
         
-        interval = request.form.get('interval')
-        
-        df = get_finance_data(name, start_date, end_date, interval)
+        #df = get_finance_data(name, start_date, end_date, interval)
     return df.to_html(classes='table table-striped text-center', justify='center')
 
 
 @app.route('/')
 def home():
-    #results = my_form_post()
-    return render_template('yahoo_fin.html')
+    return render_template('yahoo_fin.html', data=d_ticker)
 
 
 if __name__ == '__main__':
-    # app.run(debug=True, host='127.0.0.1', port=5000)
     app.run()
